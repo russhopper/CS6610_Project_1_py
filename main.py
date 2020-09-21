@@ -1,5 +1,6 @@
 from fileScanner import fileScanner
 from instructionParser import instructionParser
+from test import test
 import re
 
 inputFiles = ["example1.s", "example2_mod.s", "example3.s", "example4.s", "example5.s"]
@@ -11,9 +12,8 @@ for fn in inputFilesApp:
     f_lines = fs.getLinesAsArray()
     inst_prs = instructionParser(f_lines)
     print(f'Filename: {fn} ----------')
-    print(inst_prs)
     f = open(f'{re.sub(r"input", "output", fn)[:-2]}.o', 'w')
     f.write(inst_prs.binaryRepresentation)
     f.close()
-    # input('continue?')
 
+test()

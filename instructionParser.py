@@ -16,7 +16,9 @@ class instructionParser:
         self.__binaryRepresentation_lst = [self.__binaryRepresentation[i:i+32] for i in range(0,len(self.__binaryRepresentation), 32)]
 
     def __instr_to_bin_funct_lookup(self, funct):
-        def beq(rs, rt, tgt_lbl, pc):
+        
+        def branch(funct, rs, rt, tgt_lbl, pc):
+            f = {'beq' : '000100', 'bne' : '000101'}[funct]
             # conversion calculation part 1. (pc_target - pc_current) / 4
             # I subtracted -4 to get a positive instead of negative result
             target_minus_pc = int(self.__textSection[tgt_lbl], 16) - int(self.__text_start, 16) // -4
@@ -24,41 +26,59 @@ class instructionParser:
             bin_t_m_p = dec_to_bin(target_minus_pc - 1, 8)
             twos_complement = ''.join([{'0':'1','1':'0'}[b] for b in bin_t_m_p])
             offset = dec_to_bin(int(f'0xFF', 16), 8) + twos_complement
-            return f'000100{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{offset}'
-            
-        def bne(rs, rt, tgt_lbl, pc):
-            # conversion calculation part 1. (pc_target - pc_current) / 4
-            # I subtracted -4 to get a positive instead of negative result
-            target_minus_pc = int(self.__textSection[tgt_lbl], 16) - int(self.__text_start, 16) // -4
-            # subtract one and flip bits to get two's complement representing the actual (negative) answer
-            bin_t_m_p = dec_to_bin(target_minus_pc - 1, 8)
-            twos_complement = ''.join([{'0':'1','1':'0'}[b] for b in bin_t_m_p])
-            offset = dec_to_bin(int(f'0xFF', 16), 8) + twos_complement
-            return f'000100{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{offset}'
+            return f'{f}{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{offset}'
+        
+        def r_type(funct, rd, rs, rt):
+            b_rs = dec_to_bin(rs, 5)
+            b_rt = dec_to_bin(rt, 5)
+            b_rd = dec_to_bin(rd, 5)
+            funct_bin = {
+                'add' : '100000',
+                'addu' : '100001',
+                'and' : '100100',
+                'nor' : '100111',
+                'or' : '100101',
+                'sltu' : '101011',
+                'subu' : '100011'
+            }[funct]
+            return f'000000{b_rs}{b_rt}{b_rd}00000{funct_bin}'
+
+        def i_type(funct, rt, rs, imm):
+            b_rt = dec_to_bin(rt, 5)
+            b_rs = dec_to_bin(rs, 5)
+            b_imm = dec_to_bin(imm, 16)
+            funct_bin = {
+                'addi' : '001000',
+                'addiu' : '001001',
+                'andi' : '001100',
+                'ori' : '001101',
+                'sltiu' : '001011'
+            }[funct]
+            return f'{funct_bin}{b_rs}{b_rt}{b_imm}'
         
         funct_lkup = {
-            'add' : lambda rd, rs, rt : f'000000{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}00000100000',
-            'addi' : lambda rt, rs, imm : f'001000{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(imm, 16)}',
-            'addiu' : lambda rt, rs, imm : f'001001{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(imm, 16)}',
-            'addu' : lambda rd, rs, rt : f'000000{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}00000100001',
-            'and' : lambda rd, rs, rt : f'000000{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}00000100100',
-            'andi' : lambda rt, rs, imm : f'001100{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(imm, 16)}',
-            'beq' : beq, 
-            'bne' : bne,
-            'j' : lambda target_lbl : f'00001000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
-            'jal' : lambda target_lbl : f'00001000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
-            'jr' : lambda rs : f'000000{dec_to_bin(rs, 5)}000000000000000001000',
-            'lui' : lambda rt, imm : f'00111100000{dec_to_bin(rt, 5)}{dec_to_bin(imm, 16)}',
-            'lw' : lambda rt, offset, base : f'100011{dec_to_bin(base, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(offset, 16)}',
-            'nor' : lambda rd, rs, rt : f'000000{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}00000100111',
-            'or' : lambda rd, rs, rt : f'000000{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}00000100101',
-            'ori' : lambda rt, rs, imm : f'001101{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(imm, 16)}',
-            'sll' : lambda rd, rt, sa : f'00000000000{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}{dec_to_bin(sa, 5)}000000',
-            'sltiu' : lambda rt, rs, imm : f'001011{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(imm, 16)}',
-            'sltu' : lambda rd, rs, rt : f'000000{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}00000101011',
-            'srl' : lambda rd, rt, sa : f'00000000000{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}{dec_to_bin(sa, 5)}000010',
-            'subu' : lambda rd, rs, rt : f'000000{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}00000100011',
-            'sw' : lambda rt, offset, base : f'101011{dec_to_bin(base, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(offset, 16)}',
+            'add' : r_type,
+            'addi' : i_type,
+            'addiu' : i_type,
+            'addu' : r_type,
+            'and' : r_type,
+            'andi' : i_type,
+            'beq' : branch, 
+            'bne' : branch,
+            'j' : lambda funct, target_lbl : f'00001000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
+            'jal' : lambda funct, target_lbl : f'00001000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
+            'jr' : lambda funct, rs : f'000000{dec_to_bin(rs, 5)}000000000000000001000',
+            'lui' : lambda funct, rt, imm : f'00111100000{dec_to_bin(rt, 5)}{dec_to_bin(imm, 16)}',
+            'lw' : lambda funct, rt, offset, base : f'100011{dec_to_bin(base, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(offset, 16)}',
+            'nor' : r_type,
+            'or' : r_type,
+            'ori' : i_type,
+            'sll' : lambda funct, rd, rt, sa : f'00000000000{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}{dec_to_bin(sa, 5)}000000',
+            'sltiu' : i_type,
+            'sltu' : r_type,
+            'srl' : lambda funct, rd, rt, sa : f'00000000000{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}{dec_to_bin(sa, 5)}000010',
+            'subu' : r_type,
+            'sw' : lambda funct, rt, offset, base : f'101011{dec_to_bin(base, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(offset, 16)}',
             }
     
         return funct_lkup[funct]
@@ -71,7 +91,7 @@ class instructionParser:
         lbl_adrs_dec = int(lbl_adrs, 16)
         lbl_adrs_bin = dec_to_bin(lbl_adrs_dec, 32)
         # make lui inst
-        lui = f'\tlui\t{rt}, {lbl}'
+        lui = f'\tlui\t{rt} {lbl}'
         retInstructions.append(lui)
         if '1' in lbl_adrs_bin[16:]:
             # ? it seems like ori uses rt as both rs and rt parts
@@ -117,6 +137,8 @@ class instructionParser:
                 mrkr = text_s + 1 + i
                 self.__file_lines[mrkr:mrkr + 1] = self.__convertLaInstruction(textLine1)
 
+        
+        filteredTextLines = self.__file_lines[text_s + 1:]
         for textLine2 in filteredTextLines:
             if ':' in textLine2:
                 lbl_split = textLine2.index(':')
@@ -158,10 +180,30 @@ class instructionParser:
                 parts_conv.append(pc)
             if '0x' in str(parts_conv[-1]):
                 parts_conv[-1] = self.__hexDec_to_int(parts_conv[-1])
-            instr_bin_lines.append(self.__instr_to_bin_funct_lookup(parts_conv[0])(*parts_conv[1:]))
+            bin_rep_of_instr = self.__instr_to_bin_funct_lookup(parts_conv[0])(*parts_conv)
+            print(f'{textLine} : {bin_rep_of_instr}')
+            instr_bin_lines.append(bin_rep_of_instr)
             pc += 4
-
+        print('\n\n')
         
+        # append data section
+        pc = 0
+        ds = {}
+        data_s, text_s = 0, 0
+        for i, l in enumerate(self.__file_lines):
+            if '.data' in l:
+                data_s = i
+            if '.text' in l:
+                text_s = i
+                break
+
+        filteredDataLines = self.__file_lines[data_s + 1:text_s]
+        for dataLine in filteredDataLines:
+            # if dataLine has data at the end hex/dec, then append as 32-bit str binary
+            data_sp = dataLine.split()
+            if data_sp[-1].isdigit() or '0x' in data_sp[-1]:
+                converted_data = self.__hexDec_to_int(data_sp[-1])
+                binStr += dec_to_bin(converted_data, 32)
 
         return binStr + ''.join(instr_bin_lines)
 
