@@ -21,7 +21,7 @@ class instructionParser:
             f = {'beq' : '000100', 'bne' : '000101'}[funct]
             # conversion calculation part 1. (pc_target - pc_current) / 4
             # I subtracted -4 to get a positive instead of negative result
-            target_minus_pc = int(self.__textSection[tgt_lbl], 16) - int(self.__text_start, 16) // -4
+            target_minus_pc = ((int(self.__textSection[tgt_lbl], 16) - int('0x400000', 16)) - int(self.__text_start, 16) - pc) // -4
             # subtract one and flip bits to get two's complement representing the actual (negative) answer
             bin_t_m_p = dec_to_bin(target_minus_pc - 1, 8)
             twos_complement = ''.join([{'0':'1','1':'0'}[b] for b in bin_t_m_p])
@@ -91,11 +91,11 @@ class instructionParser:
         lbl_adrs_dec = int(lbl_adrs, 16)
         lbl_adrs_bin = dec_to_bin(lbl_adrs_dec, 32)
         # make lui inst
-        lui = f'\tlui\t{rt} {lbl}'
+        lui = f'\tlui\t{rt} {int(lbl_adrs_bin[:16], 2)}'
         retInstructions.append(lui)
         if '1' in lbl_adrs_bin[16:]:
             # ? it seems like ori uses rt as both rs and rt parts
-            ori = f'\tori\t{rt} {rt} {lbl}'
+            ori = f'\tori\t{rt} {rt} {int(lbl_adrs_bin[16:], 2)}'
             retInstructions.append(ori)
         return retInstructions
 
@@ -160,7 +160,7 @@ class instructionParser:
         binStr += txtSize_bin + dtaSize_bin
 
         # for each instruction in .text, generate binary
-        pc = 0
+        pc_line = {}
         instr_bin_lines = []
         text_s = 0
         for i, l in enumerate(self.__file_lines):
