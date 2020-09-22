@@ -25,7 +25,9 @@ class instructionParser:
             target_minus_pc = (target_pc - pc) // 4
             target_minus_pc -= 1
             bin_target = ''
+            was_negative = False
             if target_minus_pc < 0:
+                was_negative = True
                 # minus one, only if negative
                 target_minus_pc += 1
                 # flip bits
@@ -35,7 +37,8 @@ class instructionParser:
                 bin_target = ''.join(['0' if b == '1' else '1' for b in bin_target])
             else:
                 bin_target = dec_to_bin(target_minus_pc, 8)
-            offset = dec_to_bin(int(f'0xFF', 16), 8) + bin_target
+            extension = '0xFF' if was_negative else '0x00'
+            offset = dec_to_bin(int(extension, 16), 8) + bin_target
             return f'{f}{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{offset}'
         
         def r_type(funct, rd, rs, rt):
@@ -65,6 +68,14 @@ class instructionParser:
                 'sltiu' : '001011'
             }[funct]
             return f'{funct_bin}{b_rs}{b_rt}{b_imm}'
+
+        def lwsw_type(funct, rt, offset, base):
+            f = {'lw' : '100011', 'sw' : '101011'}[funct]
+            d_base = dec_to_bin(base, 5)
+            d_rt = dec_to_bin(rt, 5)
+            d_offset = dec_to_bin(offset, 16)
+            return f'{f}{d_base}{d_rt}{d_offset}'
+
         
         funct_lkup = {
             'add' : r_type,
@@ -75,11 +86,11 @@ class instructionParser:
             'andi' : i_type,
             'beq' : branch, 
             'bne' : branch,
-            'j' : lambda funct, target_lbl : f'00001000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
-            'jal' : lambda funct, target_lbl : f'00001000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
+            'j' : lambda funct, target_lbl : f'0000100000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
+            'jal' : lambda funct, target_lbl : f'0000100000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
             'jr' : lambda funct, rs : f'000000{dec_to_bin(rs, 5)}000000000000000001000',
             'lui' : lambda funct, rt, imm : f'00111100000{dec_to_bin(rt, 5)}{dec_to_bin(imm, 16)}',
-            'lw' : lambda funct, rt, offset, base : f'100011{dec_to_bin(base, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(offset, 16)}',
+            'lw' : lwsw_type,
             'nor' : r_type,
             'or' : r_type,
             'ori' : i_type,
@@ -88,7 +99,7 @@ class instructionParser:
             'sltu' : r_type,
             'srl' : lambda funct, rd, rt, sa : f'00000000000{dec_to_bin(rt, 5)}{dec_to_bin(rd, 5)}{dec_to_bin(sa, 5)}000010',
             'subu' : r_type,
-            'sw' : lambda funct, rt, offset, base : f'101011{dec_to_bin(base, 5)}{dec_to_bin(rt, 5)}{dec_to_bin(offset, 16)}',
+            'sw' : lwsw_type,
             }
     
         return funct_lkup[funct]
@@ -171,7 +182,6 @@ class instructionParser:
 
         # for each instruction in .text, generate binary
         line_to_pc = {}
-        instr_bin_lines = []
         text_s = 0
         counter = 0
         for i, l in enumerate(self.__file_lines):
@@ -190,9 +200,11 @@ class instructionParser:
                 parts_conv.append(pc*4)
             if '0x' in str(parts_conv[-1]):
                 parts_conv[-1] = self.__hexDec_to_int(parts_conv[-1])
+            if parts_conv[0] == 'lw':
+                a = 1
             bin_rep_of_instr = self.__instr_to_bin_funct_lookup(parts_conv[0])(*parts_conv)
             print(f'{textLine} : {bin_rep_of_instr}')
-            instr_bin_lines.append(bin_rep_of_instr)
+            binStr += bin_rep_of_instr
         print('\n\n')
         
         # append data section
@@ -214,7 +226,7 @@ class instructionParser:
                 converted_data = self.__hexDec_to_int(data_sp[-1])
                 binStr += dec_to_bin(converted_data, 32)
 
-        return binStr + ''.join(instr_bin_lines)
+        return binStr
 
     @property
     def binaryRepresentation(self):
