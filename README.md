@@ -14,4 +14,4 @@ https://github.com/russhopper/CS6610_Project_1_py
 
 Thanks to Python for being easier than C
 
-![](../docs/python.jpg)
+![python](docs/python.jpg)
