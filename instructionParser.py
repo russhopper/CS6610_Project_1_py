@@ -73,8 +73,24 @@ class instructionParser:
             f = {'lw' : '100011', 'sw' : '101011'}[funct]
             d_base = dec_to_bin(base, 5)
             d_rt = dec_to_bin(rt, 5)
-            d_offset = dec_to_bin(offset, 16)
-            return f'{f}{d_base}{d_rt}{d_offset}'
+
+            offset = int(offset)
+            bin_target = ''
+            was_negative = False
+            if offset < 0:
+                was_negative = True
+                # minus one, only if negative
+                offset += 1
+                # flip bits
+                offset *= -1
+                # convert to bin
+                bin_target = dec_to_bin(offset, 8)
+                bin_target = ''.join(['0' if b == '1' else '1' for b in bin_target])
+            else:
+                bin_target = dec_to_bin(offset, 8)
+            extension = '0xFF' if was_negative else '0x00'
+            offset_f = dec_to_bin(int(extension, 16), 8) + bin_target
+            return f'{f}{d_base}{d_rt}{offset_f}'
 
         
         funct_lkup = {
@@ -87,7 +103,7 @@ class instructionParser:
             'beq' : branch, 
             'bne' : branch,
             'j' : lambda funct, target_lbl : f'0000100000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
-            'jal' : lambda funct, target_lbl : f'0000100000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
+            'jal' : lambda funct, target_lbl : f'0000110000{dec_to_bin(int(self.__textSection[target_lbl], 16), 24)[:-2]}',
             'jr' : lambda funct, rs : f'000000{dec_to_bin(rs, 5)}000000000000000001000',
             'lui' : lambda funct, rt, imm : f'00111100000{dec_to_bin(rt, 5)}{dec_to_bin(imm, 16)}',
             'lw' : lwsw_type,
