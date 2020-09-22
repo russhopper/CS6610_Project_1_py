@@ -21,11 +21,21 @@ class instructionParser:
             f = {'beq' : '000100', 'bne' : '000101'}[funct]
             # conversion calculation part 1. (pc_target - pc_current) / 4
             # I subtracted -4 to get a positive instead of negative result
-            target_minus_pc = ((int(self.__textSection[tgt_lbl], 16) - int('0x400000', 16)) - int(self.__text_start, 16) - pc) // -4
-            # subtract one and flip bits to get two's complement representing the actual (negative) answer
-            bin_t_m_p = dec_to_bin(target_minus_pc - 1, 8)
-            twos_complement = ''.join([{'0':'1','1':'0'}[b] for b in bin_t_m_p])
-            offset = dec_to_bin(int(f'0xFF', 16), 8) + twos_complement
+            target_pc = int(self.__textSection[tgt_lbl], 16) - int('0x400000', 16)
+            target_minus_pc = (target_pc - pc) // 4
+            target_minus_pc -= 1
+            bin_target = ''
+            if target_minus_pc < 0:
+                # minus one, only if negative
+                target_minus_pc += 1
+                # flip bits
+                target_minus_pc *= -1
+                # convert to bin
+                bin_target = dec_to_bin(target_minus_pc, 8)
+                bin_target = ''.join(['0' if b == '1' else '1' for b in bin_target])
+            else:
+                bin_target = dec_to_bin(target_minus_pc, 8)
+            offset = dec_to_bin(int(f'0xFF', 16), 8) + bin_target
             return f'{f}{dec_to_bin(rs, 5)}{dec_to_bin(rt, 5)}{offset}'
         
         def r_type(funct, rd, rs, rt):
@@ -160,30 +170,29 @@ class instructionParser:
         binStr += txtSize_bin + dtaSize_bin
 
         # for each instruction in .text, generate binary
-        pc_line = {}
+        line_to_pc = {}
         instr_bin_lines = []
         text_s = 0
+        counter = 0
         for i, l in enumerate(self.__file_lines):
             if '.text' in l:
                 text_s = i
-                break
 
         filteredTextLines = [l for l in self.__file_lines[text_s + 1:] if ':' not in l]
         
-        for textLine in filteredTextLines:
+        for pc, textLine in enumerate(filteredTextLines):
             parts = [p for p in re.split('\s|,|, |\$|\(|\)|\t', textLine) if p and p not in ['', ' ']]
             parts_conv = [self.__hexDec_to_int(c) if c.isdigit() else c for c in parts]
             # if the last element in parts_conv is a label, find the address and pass that in instead
             if parts_conv[-1] in self.__dataSection.keys():
                 parts_conv[-1] = self.__hexDec_to_int(self.__dataSection[parts_conv[-1]])
             if parts_conv[0] in ['bne', 'beq']:
-                parts_conv.append(pc)
+                parts_conv.append(pc*4)
             if '0x' in str(parts_conv[-1]):
                 parts_conv[-1] = self.__hexDec_to_int(parts_conv[-1])
             bin_rep_of_instr = self.__instr_to_bin_funct_lookup(parts_conv[0])(*parts_conv)
             print(f'{textLine} : {bin_rep_of_instr}')
             instr_bin_lines.append(bin_rep_of_instr)
-            pc += 4
         print('\n\n')
         
         # append data section
