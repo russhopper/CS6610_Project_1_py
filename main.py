@@ -2,8 +2,11 @@ from fileScanner import fileScanner
 from instructionParser import instructionParser
 from test import test
 import re
+from os import listdir
+from os.path import isfile, join
 
-inputFiles = ["example1.s", "example2_mod.s", "example3.s", "example4.s", "example5.s"]
+mypath = r'input'
+inputFiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 inputFilesApp = [f"input/{fn}" for fn in inputFiles]
 f_lines = []
 
